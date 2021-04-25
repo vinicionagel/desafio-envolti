@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
-import { Pessoa } from '../pessoa';
-import { PessoaService } from '../pessoa.service';
+import { Pessoa } from './pessoa';
+import { PessoaService } from './pessoa.service';
 import {ToastrService} from 'ngx-toastr';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {CustomValidators} from '../form-validator/form-validator.service';
+import {ConfirmDialogService} from '../confirm-dialog/confirm-dialog.service';
 
 @Component({
   selector: 'app-pessoa',
@@ -15,7 +16,9 @@ export class PessoaComponent implements OnInit {
   pessoas: Pessoa[];
   form: FormGroup;
 
-  constructor(private pessoaService: PessoaService, private toastr: ToastrService, private formBuilder: FormBuilder) { }
+
+  constructor(private pessoaService: PessoaService, private toastr: ToastrService,
+              private formBuilder: FormBuilder, private confirmationDialogService: ConfirmDialogService) { }
 
   ngOnInit() {
     this.buildForm();
@@ -32,15 +35,18 @@ export class PessoaComponent implements OnInit {
       nome: [null, [Validators.required]],
       cpf: ['', [Validators.required, CustomValidators.cnpjOrCpfValidator]],
       dataNascimento: [null, [Validators.required]],
-      email: [null],
+      email: [null, [Validators.email]],
       sexo: [null],
       naturalidade: [null],
       nacionalidade: [null]
     });
   }
 
-  deletePessoa(pessoa: Pessoa) {
-    console.log(pessoa);
+  private deletePessoa(pessoa: Pessoa) {
+    const mesmaPessoaEmAlteracaoDelete = this.form.value.id === pessoa.id;
+    if (mesmaPessoaEmAlteracaoDelete) {
+      this.form.reset();
+    }
     this.pessoaService.deletePessoa(pessoa).subscribe(() => {
       this.carregarPessoas();
       this.toastr.success('Sucesso', 'Deletado', {
@@ -49,7 +55,7 @@ export class PessoaComponent implements OnInit {
     });
   }
 
-  submitForm() {
+  public submitForm() {
     this.form.markAllAsTouched();
     if (this.form.valid) {
       if (this.form.value.id) {
@@ -58,6 +64,15 @@ export class PessoaComponent implements OnInit {
       }
       this.addPessoa();
     }
+  }
+
+  public abrirConfirmationDialogDeletePessoa(pessoa: Pessoa) {
+    this.confirmationDialogService.confirm('Confirmar remoção', `Você realmente deseja excluir ${pessoa.nome} ?`)
+      .then((confirmed) => {
+        if (confirmed) {
+          this.deletePessoa(pessoa);
+        }
+      });
   }
 
   private addPessoa() {
@@ -72,14 +87,21 @@ export class PessoaComponent implements OnInit {
   }
 
   private errorMessageTrySaveOrUpdatePessoa() {
+
     return (error) => {
-      this.toastr.error(error.error.message, 'Error', {
-        timeOut: 3000,
-      });
+      if (error.error.message) {
+        this.toastr.error(error.error.message, 'Error', {
+          timeOut: 3000,
+        });
+      } else {
+        this.toastr.error('Cpf já cadastrado', 'Error', {
+          timeOut: 3000,
+        });
+      }
     };
   }
 
-  carregarPessoaAlteracao(pessoa: Pessoa) {
+  public carregarPessoaAlteracao(pessoa: Pessoa) {
     this.form.setValue(pessoa);
   }
 
